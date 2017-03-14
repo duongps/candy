@@ -48,6 +48,7 @@ Candy.Game.prototype = {
 
 		//margin left for tile group
 		me.tileMarginLeft = (me.world.width - me.tileWidth * me.tileGrid.length) / 2;
+		me.tileMarginTop = (me.world.height - me.tileHeight * me.tileGrid.length) / 2;
 
 		//Create a random data generator to use later
 		var seed = Date.now();
@@ -76,6 +77,7 @@ Candy.Game.prototype = {
 
     //Once the tiles are ready, check for any matches on the grid
     me.game.time.events.add(600, function(){
+				console.log('initTiles checkMatch');
         me.checkMatch();
     });
 	},
@@ -87,10 +89,10 @@ Candy.Game.prototype = {
     var tileToAdd = me.tileTypes[me.random.integerInRange(0, me.tileTypes.length - 1)];
 
     //Add the tile at the correct x position, but add it to the top of the game (so we can slide it in)
-    var tile = me.tiles.create(me.tileMarginLeft + (x * me.tileWidth) + me.tileWidth / 2, 0, tileToAdd);
+    var tile = me.tiles.create(me.tileMarginLeft + (x * me.tileWidth) + me.tileWidth / 2, me.tileMarginTop, tileToAdd);
 
     //Animate the tile into the correct vertical position
-    me.game.add.tween(tile).to({y:y*me.tileHeight+(me.tileHeight/2)}, 500, Phaser.Easing.Linear.In, true)
+    me.game.add.tween(tile).to({y:y*me.tileHeight+(me.tileHeight/2) + me.tileMarginTop}, 500, Phaser.Easing.Linear.In, true)
 
     //Set the tiles anchor point to the center
     tile.anchor.setTo(0.5, 0.5);
@@ -112,11 +114,12 @@ Candy.Game.prototype = {
     var me = this;
 
     //Keep track of where the user originally clicked
+		console.log('tileDown canMove: ' + me.canMove);
     if(me.canMove){
         me.activeTile1 = tile;
 
-        me.startPosX = (tile.x - me.tileWidth/2) / me.tileWidth;
-        me.startPosY = (tile.y - me.tileHeight/2) / me.tileHeight;
+        me.startPosX = (tile.x - me.tileMarginLeft - me.tileWidth/2) / me.tileWidth;
+        me.startPosY = (tile.y - me.tileMarginTop - me.tileHeight/2) / me.tileHeight;
     }
 	},
 
@@ -127,14 +130,13 @@ Candy.Game.prototype = {
     //The user is currently dragging from a tile, so let's see if they have dragged
     //over the top of an adjacent tile
     if(me.activeTile1 && !me.activeTile2){
-
         //Get the location of where the pointer is currently
         var hoverX = me.game.input.x;
         var hoverY = me.game.input.y;
 
         //Figure out what position on the grid that translates to
-        var hoverPosX = Math.floor(hoverX/me.tileWidth);
-        var hoverPosY = Math.floor(hoverY/me.tileHeight);
+        var hoverPosX = Math.floor((hoverX - me.tileMarginLeft)/me.tileWidth);
+        var hoverPosY = Math.floor((hoverY - me.tileMarginTop)/me.tileHeight);
 
         //See if the user had dragged over to another position on the grid
         var difX = (hoverPosX - me.startPosX);
@@ -145,6 +147,8 @@ Candy.Game.prototype = {
 
             //If the user has dragged an entire tiles width or height in the x or y direction
             //trigger a tile swap
+						console.log('Math.abs(difX): ' + Math.abs(difX));
+						console.log('difY: ' + difY);
             if((Math.abs(difY) == 1 && difX == 0) || (Math.abs(difX) == 1 && difY ==0)){
 
                 //Prevent the player from making more moves whilst checking is in progress
@@ -154,10 +158,12 @@ Candy.Game.prototype = {
                 me.activeTile2 = me.tileGrid[hoverPosX][hoverPosY];
 
                 //Swap the two active tiles
+								console.log("swapTiles 158");
                 me.swapTiles();
 
                 //After the swap has occurred, check the grid for any matches
                 me.game.time.events.add(500, function(){
+										console.log('update checkMatch');
                     me.checkMatch();
                 });
             }
@@ -168,22 +174,30 @@ Candy.Game.prototype = {
 	},
 
 	swapTiles: function(){
-
+		console.log('swapTiles');
     var me = this;
 
     //If there are two active tiles, swap their positions
     if(me.activeTile1 && me.activeTile2){
 
-        var tile1Pos = {x:(me.activeTile1.x - me.tileWidth / 2) / me.tileWidth, y:(me.activeTile1.y - me.tileHeight / 2) / me.tileHeight};
-        var tile2Pos = {x:(me.activeTile2.x - me.tileWidth / 2) / me.tileWidth, y:(me.activeTile2.y - me.tileHeight / 2) / me.tileHeight};
+        var tile1Pos = {x:(me.activeTile1.x - me.tileMarginLeft - me.tileWidth / 2) / me.tileWidth, y:(me.activeTile1.y - me.tileMarginTop - me.tileHeight / 2) / me.tileHeight};
+        var tile2Pos = {x:(me.activeTile2.x - me.tileMarginLeft - me.tileWidth / 2) / me.tileWidth, y:(me.activeTile2.y - me.tileMarginTop - me.tileHeight / 2) / me.tileHeight};
 
         //Swap them in our "theoretical" grid
+				console.log("tile1Pos.x: " + tile1Pos.x);
+				console.log("tile1Pos.y: " + tile1Pos.y);
+
+				console.log("tile2Pos.x: " + tile2Pos.x);
+				console.log("tile2Pos.y: " + tile2Pos.y);
+
         me.tileGrid[tile1Pos.x][tile1Pos.y] = me.activeTile2;
         me.tileGrid[tile2Pos.x][tile2Pos.y] = me.activeTile1;
 
         //Actually move them on the screen
-        me.game.add.tween(me.activeTile1).to({x:tile2Pos.x * me.tileWidth + (me.tileWidth/2), y:tile2Pos.y * me.tileHeight + (me.tileHeight/2)}, 200, Phaser.Easing.Linear.In, true);
-        me.game.add.tween(me.activeTile2).to({x:tile1Pos.x * me.tileWidth + (me.tileWidth/2), y:tile1Pos.y * me.tileHeight + (me.tileHeight/2)}, 200, Phaser.Easing.Linear.In, true);
+        me.game.add.tween(me.activeTile1).to({x:tile2Pos.x * me.tileWidth + (me.tileWidth/2) + me.tileMarginLeft,
+					y:tile2Pos.y * me.tileHeight + (me.tileHeight/2) + me.tileMarginTop}, 200, Phaser.Easing.Linear.In, true);
+        me.game.add.tween(me.activeTile2).to({x:tile1Pos.x * me.tileWidth + (me.tileWidth/2) + me.tileMarginLeft,
+					y:tile1Pos.y * me.tileHeight + (me.tileHeight/2) + me.tileMarginTop}, 200, Phaser.Easing.Linear.In, true);
 
         me.activeTile1 = me.tileGrid[tile1Pos.x][tile1Pos.y];
         me.activeTile2 = me.tileGrid[tile2Pos.x][tile2Pos.y];
@@ -198,7 +212,9 @@ checkMatch: function(){
 
     //Call the getMatches function to check for spots where there is
     //a run of three or more tiles in a row
+		console.log('getMatches');
     var matches = me.getMatches(me.tileGrid);
+		console.log('matches.length: ' + matches.length);
 
     //If there are matches, remove them
     if(matches.length > 0){
@@ -219,6 +235,7 @@ checkMatch: function(){
 
         //Check again to see if the repositioning of tiles caused any new matches
         me.game.time.events.add(600, function(){
+						console.log('continue checkMatch');
             me.checkMatch();
         });
 
@@ -226,6 +243,7 @@ checkMatch: function(){
     else {
 
         //No match so just swap the tiles back to their original position and reset
+				console.log("swapTiles 235");
         me.swapTiles();
         me.game.time.events.add(500, function(){
             me.tileUp();
@@ -400,7 +418,7 @@ checkMatch: function(){
                 me.tileGrid[i][j] = tempTile;
                 me.tileGrid[i][j-1] = null;
 
-                me.game.add.tween(tempTile).to({y:(me.tileHeight*j)+(me.tileHeight/2)}, 200, Phaser.Easing.Linear.In, true);
+                me.game.add.tween(tempTile).to({y:me.tileMarginTop + (me.tileHeight*j)+(me.tileHeight/2)}, 200, Phaser.Easing.Linear.In, true);
 
                 //The positions have changed so start this process again from the bottom
                 //NOTE: This is not set to me.tileGrid[i].length - 1 because it will immediately be decremented as
@@ -436,10 +454,10 @@ checkMatch: function(){
 	createScore: function(){
 
     var me = this;
-    var scoreFont = "100px Arial";
+    var scoreFont = "50px Arial";
 
-    me.scoreLabel = me.game.add.text(me.world.centerX, me.tileGrid.length * me.tileHeight, "0", {font: scoreFont, fill: "#fff"});
-    me.scoreLabel.anchor.setTo(0.5, 0);
+    me.scoreLabel = me.game.add.text(me.world.width - 10, 10, "0", {font: scoreFont, fill: "#fff"});
+    me.scoreLabel.anchor.setTo(1, 0);
     me.scoreLabel.align = 'center';
 	},
 
